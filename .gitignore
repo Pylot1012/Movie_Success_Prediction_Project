@@ -1,0 +1,147 @@
+# .gitignore for Movie Success Project
+
+# ============================================
+# MOVIE SUCCESS PREDICTION PROJECT - .gitignore
+# ============================================
+
+# ========== PYTHON ==========
+# Virtual environments
+venv/
+env/
+ENV/
+.env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# ========== JUPYTER NOTEBOOKS ==========
+.ipynb_checkpoints/
+*.ipynb
+
+# ========== DATA FILES ==========
+# Large datasets - DO NOT UPLOAD to GitHub!
+*.csv
+*.xlsx
+*.xls
+*.json
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.feather
+*.parquet
+
+# Your specific data files
+data/movie_metadata.csv           # Original dataset (too large)
+Deployment/movie_dashboard_data.csv  # Generated data
+Deployment/model.pkl              # Trained model
+Deployment/scaler.pkl             # Scaler object
+
+# ========== VISUALIZATIONS ==========
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+*.tiff
+*.emf
+*.svg
+
+# ========== TABLEAU ==========
+.Tableau/
+*.twb
+*.twbx
+*.tde
+*.hyper
+
+# ========== OPERATING SYSTEM ==========
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ========== IDE & EDITOR ==========
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iml
+
+# Spyder
+.spyderproject
+.spyproject
+
+# ========== ENVIRONMENT VARIABLES ==========
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ========== STREAMLIT ==========
+.streamlit/
+streamlit.log
+
+# ========== MISC ==========
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Compression
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
