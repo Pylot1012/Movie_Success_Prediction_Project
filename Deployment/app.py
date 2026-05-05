@@ -1,250 +1,419 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
-import pickle
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import seaborn as sns
 from sklearn.ensemble import RandomForestClassifier
-import os
-import sys
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, confusion_matrix
+import plotly.express as px
+import plotly.graph_objects as go
+from pathlib import Path
+import warnings
+warnings.filterwarnings("ignore")
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-# Load environment variables (if any)
-from dotenv import load_dotenv
-load_dotenv()
-
-# Set page config
+# ── Page config ────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Movie Success Predictor",
     page_icon="🎬",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
 
-# Title
-st.title("🎬 Movie Success Prediction Dashboard")
-st.markdown("Predict whether a movie will be **Hit, Average, or Flop** based on key features")
+# ── Constants ──────────────────────────────────────────────────────────
+BASE_DIR = Path(__file__).parent
+DATA_PATH = BASE_DIR / "movie_dashboard_data.csv"
 
-# Sidebar for navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to:", ["Home", "Predict Success", "Data Analysis", "Model Insights"])
+FEATURES = [
+    "duration", "budget", "gross", "num_voted_users",
+    "movie_facebook_likes", "director_facebook_likes",
+]
+FEATURE_LABELS = {
+    "duration":                "Duration (min)",
+    "budget":                  "Budget ($)",
+    "gross":                   "Gross ($)",
+    "num_voted_users":         "Voted Users",
+    "movie_facebook_likes":    "Movie FB Likes",
+    "director_facebook_likes": "Director FB Likes",
+}
+TARGET = "success_category"
+COLORS = {"Hit": "#C084FC", "Average": "#818CF8", "Flop": "#38BDF8"}
+BG_DARK = "#0D0D0D"
 
-# Load data
+# ── Load data ──────────────────────────────────────────────────────────
 @st.cache_data
 def load_data():
-    df = pd.read_csv('data/movie_metadata.csv')
-    df['success'] = pd.cut(df['imdb_score'], 
-                          bins=[0, 3, 6, 10],
-                          labels=['Flop', 'Average', 'Hit'])
+    if not DATA_PATH.exists():
+        st.error(
+            f"Data file not found at `{DATA_PATH}`. "
+            "Please ensure `movie_dashboard_data.csv` is committed to the "
+            "repository in the same folder as `app.py`."
+        )
+        st.stop()
+    df = pd.read_csv(DATA_PATH)
+    for col in FEATURES:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=FEATURES + [TARGET])
     return df
 
+# ── Train model ────────────────────────────────────────────────────────
+@st.cache_resource
+def train_model(df):
+    X = df[FEATURES].fillna(df[FEATURES].median())
+    y = df[TARGET]
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y, test_size=0.2, random_state=42, stratify=y
+    )
+    model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)
+    model.fit(X_train, y_train)
+    acc = model.score(X_test, y_test)
+    report = classification_report(y_test, model.predict(X_test), output_dict=True)
+    cm = confusion_matrix(y_test, model.predict(X_test), labels=["Flop", "Average", "Hit"])
+    return model, scaler, acc, report, cm
+
+# ── Load everything ────────────────────────────────────────────────────
 df = load_data()
+model, scaler, accuracy, report, cm = train_model(df)
 
-if page == "Home":
-    st.header("Welcome to Movie Success Predictor")
-    st.markdown("""
-    ### Project Overview
-    This interactive dashboard helps film studios predict movie success categories (Hit/Average/Flop) 
-    using machine learning models trained on historical IMDB data.
-    
-    ### Key Features:
-    - **Success Prediction**: Input movie features to get success probability
-    - **Data Analysis**: Explore relationships between features and success
-    - **Model Insights**: Understand what drives movie success
-    - **Visualizations**: Interactive charts and graphs
-    
-    ### Dataset Summary:
-    """)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Movies", df.shape[0])
-    with col2:
-        st.metric("Features", df.shape[1])
-    with col3:
-        st.metric("Hit Movies", df['success'].value_counts().get('Hit', 0))
-    with col4:
-        st.metric("Model Accuracy", "76.81%")
-    
-    st.image('graph2_success_categories.png', caption='Movie Success Distribution')
+# ── Sidebar ────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown("## 🎬 Movie Predictor")
+    page = st.radio(
+        "Navigate",
+        ["🏠 Home", "🎯 Predict Success", "📊 Data Analysis", "🤖 Model Insights"],
+    )
+    st.markdown("---")
+    st.markdown(
+        """
+        **Boston Institute of Analytics**  
+        Data Science & AI Course  
+        *Student: Harmain Aziz*  
+        *December 2025*
+        """
+    )
 
-elif page == "Predict Success":
-    st.header("🎯 Predict Movie Success")
-    st.markdown("Enter movie details to predict success category")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        duration = st.slider("Duration (minutes)", 60, 240, 120)
-        budget = st.number_input("Budget ($ millions)", 1, 500, 50)
-        gross = st.number_input("Expected Gross ($ millions)", 1, 1000, 100)
-    
-    with col2:
-        num_voted_users = st.number_input("Expected Voted Users", 1000, 1000000, 50000)
-        movie_fb_likes = st.number_input("Movie Facebook Likes", 0, 200000, 5000)
-        director_fb_likes = st.number_input("Director Facebook Likes", 0, 10000, 1000)
-    
-    if st.button("Predict Success", type="primary"):
-        # Prepare input
-        input_data = pd.DataFrame({
-            'duration': [duration],
-            'budget': [budget * 1e6],  # Convert to dollars
-            'gross': [gross * 1e6],
-            'num_voted_users': [num_voted_users],
-            'movie_facebook_likes': [movie_fb_likes],
-            'director_facebook_likes': [director_fb_likes]
-        })
-        
-        # Train model on the fly (or load pre-trained)
-        features = ['duration', 'budget', 'gross', 'num_voted_users', 
-                   'movie_facebook_likes', 'director_facebook_likes']
-        X = df[features].fillna(df[features].median())
-        y = df['success']
-        
-        model = RandomForestClassifier(n_estimators=100, random_state=42)
-        model.fit(X, y)
-        
-        # Predict
-        prediction = model.predict(input_data)[0]
-        probabilities = model.predict_proba(input_data)[0]
-        
-        # Display results
-        st.subheader("Prediction Results")
-        
-        result_col1, result_col2, result_col3 = st.columns(3)
-        
-        with result_col1:
-            if prediction == 'Hit':
-                st.success(f"🎉 **Prediction: {prediction}**")
-            elif prediction == 'Average':
-                st.warning(f"📊 **Prediction: {prediction}**")
+# ══════════════════════════════════════════════════════════════════════
+# PAGE 1 — HOME
+# ══════════════════════════════════════════════════════════════════════
+if page == "🏠 Home":
+    st.title("🎬 Movie Success Prediction Dashboard")
+    st.markdown(
+        "Predict whether a movie will be a **Hit**, **Average**, or **Flop** "
+        "using machine learning trained on 5,043 IMDB movies."
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Movies", f"{len(df):,}")
+    c2.metric("Features Used", len(FEATURES))
+    c3.metric("Model Accuracy", f"{accuracy:.1%}")
+    c4.metric("Top Predictor", "Voted Users")
+
+    st.markdown("---")
+    col_l, col_r = st.columns(2)
+
+    with col_l:
+        st.subheader("Success Distribution")
+        counts = df[TARGET].value_counts().reset_index()
+        counts.columns = ["Category", "Count"]
+        fig = px.pie(
+            counts, names="Category", values="Count",
+            color="Category",
+            color_discrete_map=COLORS,
+            hole=0.45,
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+            legend=dict(orientation="h", y=-0.15),
+            margin=dict(t=10, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col_r:
+        st.subheader("IMDB Score Distribution")
+        fig2 = px.histogram(
+            df, x="imdb_score", nbins=40,
+            color_discrete_sequence=["#C084FC"],
+        )
+        fig2.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+            xaxis_title="IMDB Score",
+            yaxis_title="Number of Movies",
+            showlegend=False,
+            margin=dict(t=10, b=10),
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("Classification Rules")
+    r1, r2, r3 = st.columns(3)
+    r1.error("**Flop** — IMDB Score 1 – 3")
+    r2.warning("**Average** — IMDB Score 3 – 6")
+    r3.success("**Hit** — IMDB Score 6 – 10")
+
+# ══════════════════════════════════════════════════════════════════════
+# PAGE 2 — PREDICT
+# ══════════════════════════════════════════════════════════════════════
+elif page == "🎯 Predict Success":
+    st.title("🎯 Predict Movie Success")
+    st.markdown("Enter the movie's details below and click **Predict** to get an instant result.")
+
+    with st.form("predict_form"):
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            duration   = st.slider("Duration (minutes)", 60, 240, 120)
+            budget_m   = st.number_input("Budget ($ millions)", 1.0, 500.0, 50.0, step=5.0)
+        with c2:
+            gross_m    = st.number_input("Gross Earnings ($ millions)", 0.0, 2000.0, 100.0, step=10.0)
+            voted      = st.number_input("Expected Voted Users", 1_000, 2_000_000, 50_000, step=5_000)
+        with c3:
+            movie_fb   = st.number_input("Movie Facebook Likes", 0, 350_000, 5_000, step=1_000)
+            dir_fb     = st.number_input("Director Facebook Likes", 0, 25_000, 1_000, step=500)
+
+        submitted = st.form_submit_button("🎬 Predict Success", use_container_width=True)
+
+    if submitted:
+        input_raw = np.array([[
+            duration,
+            budget_m * 1_000_000,
+            gross_m  * 1_000_000,
+            voted,
+            movie_fb,
+            dir_fb,
+        ]])
+        input_scaled = scaler.transform(input_raw)
+        prediction   = model.predict(input_scaled)[0]
+        probs        = model.predict_proba(input_scaled)[0]
+        classes      = model.classes_
+
+        st.markdown("---")
+        res_col, prob_col = st.columns([1, 2])
+
+        with res_col:
+            if prediction == "Hit":
+                st.success(f"## 🎉 {prediction}")
+                st.metric("Confidence", f"{max(probs):.1%}")
+            elif prediction == "Average":
+                st.warning(f"## 📊 {prediction}")
+                st.metric("Confidence", f"{max(probs):.1%}")
             else:
-                st.error(f"⚠️ **Prediction: {prediction}**")
-        
-        with result_col2:
-            st.metric("Confidence", f"{max(probabilities)*100:.1f}%")
-        
-        # Probability chart
-        with result_col3:
-            fig, ax = plt.subplots(figsize=(4, 3))
-            categories = ['Flop', 'Average', 'Hit']
-            ax.bar(categories, probabilities, color=['red', 'orange', 'green'])
-            ax.set_ylabel('Probability')
-            ax.set_title('Success Probability Distribution')
-            st.pyplot(fig)
-        
-        # Feature importance
-        st.subheader("Top Success Factors")
-        importance_df = pd.DataFrame({
-            'Feature': features,
-            'Importance': model.feature_importances_
-        }).sort_values('Importance', ascending=False)
-        
-        st.dataframe(importance_df, hide_index=True)
+                st.error(f"## ⚠️ {prediction}")
+                st.metric("Confidence", f"{max(probs):.1%}")
 
-elif page == "Data Analysis":
-    st.header("📊 Data Analysis")
-    
-    analysis_type = st.selectbox("Select Analysis", 
-                                ["Success Distribution", "Budget vs Gross", 
-                                 "Duration Analysis", "Facebook Impact"])
-    
-    if analysis_type == "Success Distribution":
-        st.image('graph2_success_categories.png')
-        st.markdown("""
-        **Insights:**
-        - Majority of movies (68.5%) are Hits (IMDB 6-10)
-        - Very few movies (0.9%) are complete Flops
-        - Studios should aim for at least Average category
-        """)
-    
-    elif analysis_type == "Budget vs Gross":
-        st.image('graph3_budget_vs_gross.png')
-        st.markdown("""
-        **Insights:**
-        - Positive correlation between budget and gross earnings
-        - Higher budget doesn't guarantee success, but increases probability
-        - Optimal budget range: $50-150 million
-        """)
-    
-    elif analysis_type == "Duration Analysis":
-        st.image('graph4_duration_distribution.png')
-        st.markdown("""
-        **Insights:**
-        - Most successful movies: 90-150 minutes
-        - Too short (<90 min) may lack substance
-        - Too long (>150 min) may lose audience engagement
-        """)
-    
-    else:  # Facebook Impact
-        st.image('graph5_facebook_vs_score.png')
-        st.markdown("""
-        **Insights:**
-        - Social media presence correlates with IMDB scores
-        - Facebook likes serve as pre-release interest indicator
-        - Marketing campaigns should boost social media engagement
-        """)
+        with prob_col:
+            prob_df = pd.DataFrame({
+                "Category":    list(classes),
+                "Probability": list(probs),
+            })
+            fig = px.bar(
+                prob_df, x="Category", y="Probability",
+                color="Category",
+                color_discrete_map=COLORS,
+                text=prob_df["Probability"].apply(lambda x: f"{x:.1%}"),
+            )
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font_color="#F8F8F8",
+                showlegend=False,
+                yaxis_range=[0, 1],
+                margin=dict(t=10, b=10),
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
-elif page == "Model Insights":
-    st.header("🤖 Model Insights")
-    
-    tab1, tab2, tab3 = st.tabs(["Feature Importance", "Confusion Matrix", "Performance Metrics"])
-    
+        st.markdown("### Feature Contribution")
+        imp_df = pd.DataFrame({
+            "Feature":    [FEATURE_LABELS[f] for f in FEATURES],
+            "Importance": model.feature_importances_,
+        }).sort_values("Importance", ascending=True)
+        fig2 = px.bar(
+            imp_df, x="Importance", y="Feature", orientation="h",
+            color="Importance", color_continuous_scale=["#38BDF8", "#C084FC", "#FBBF24"],
+        )
+        fig2.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+            coloraxis_showscale=False,
+            margin=dict(t=10, b=10),
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════════════
+# PAGE 3 — DATA ANALYSIS
+# ══════════════════════════════════════════════════════════════════════
+elif page == "📊 Data Analysis":
+    st.title("📊 Data Analysis")
+
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "Budget vs Gross", "Duration", "Facebook Impact", "Correlation",
+    ])
+
     with tab1:
-        st.image('graph7_feature_importance.png')
-        st.markdown("""
-        **Top 3 Success Predictors:**
-        1. **Number of Voted Users** (24.3%) - Audience engagement is key
-        2. **Movie Duration** (19.1%) - Optimal runtime matters
-        3. **Gross Earnings** (16.0%) - Financial success indicator
-        
-        **Recommendation:** Focus on generating audience participation and optimizing movie length.
-        """)
-    
+        st.subheader("Budget vs Gross Earnings")
+        plot_df = df[df["budget_millions"] < 500].copy()
+        fig = px.scatter(
+            plot_df, x="budget_millions", y="gross_millions",
+            color=TARGET, color_discrete_map=COLORS,
+            opacity=0.6,
+            labels={"budget_millions": "Budget ($ Millions)", "gross_millions": "Gross ($ Millions)"},
+            hover_data=["movie_title"],
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("Higher budgets generally correlate with higher gross earnings, but hits can emerge across all budget levels.")
+
     with tab2:
-        st.image('graph8_confusion_matrix.png')
-        st.markdown("""
-        **Model Performance:**
-        - **Hit movies**: 85% correct prediction rate
-        - **Average movies**: 70% correct prediction rate  
-        - **Flop movies**: Limited data, lower accuracy
-        
-        **Strength:** Excellent at identifying Hits (most important for studios)
-        """)
-    
+        st.subheader("Movie Duration Distribution")
+        fig = px.histogram(
+            df[df["duration"] < 300], x="duration",
+            color=TARGET, barmode="overlay",
+            color_discrete_map=COLORS,
+            nbins=50, opacity=0.75,
+            labels={"duration": "Duration (minutes)"},
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("Most successful movies fall in the 90–150 minute range.")
+
     with tab3:
-        st.markdown("""
-        ### Model Performance Summary
-        
-        | Metric | Value |
-        |--------|-------|
-        | Accuracy | 76.81% |
-        | Precision | 77.2% |
-        | Recall | 76.8% |
-        | F1-Score | 76.9% |
-        | ROC-AUC | 0.82 |
-        
-        ### Business Impact:
-        - **76.81% accuracy** means 3 out of 4 predictions are correct
-        - Can save millions by avoiding potential flops
-        - Helps optimize marketing budget allocation
-        """)
-        
-        # Add download button for model
-        st.download_button(
-            label="Download Sample Dataset",
-            data=df.head(100).to_csv(index=False),
-            file_name="sample_movie_data.csv",
-            mime="text/csv"
+        st.subheader("Facebook Likes vs IMDB Score")
+        fig = px.scatter(
+            df[df["movie_facebook_likes"] < 200_000],
+            x="movie_facebook_likes", y="imdb_score",
+            color=TARGET, color_discrete_map=COLORS,
+            opacity=0.5,
+            labels={
+                "movie_facebook_likes": "Movie Facebook Likes",
+                "imdb_score": "IMDB Score",
+            },
+            hover_data=["movie_title"],
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.info("Social media presence shows a moderate positive correlation with audience ratings.")
+
+    with tab4:
+        st.subheader("Correlation Matrix — Key Features")
+        num_cols = FEATURES + ["imdb_score"]
+        corr = df[num_cols].corr()
+        fig = px.imshow(
+            corr, text_auto=".2f",
+            color_continuous_scale="RdBu_r",
+            zmin=-1, zmax=1,
+            labels=dict(color="Correlation"),
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+            margin=dict(t=10, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════════════
+# PAGE 4 — MODEL INSIGHTS
+# ══════════════════════════════════════════════════════════════════════
+elif page == "🤖 Model Insights":
+    st.title("🤖 Model Insights")
+
+    tab1, tab2, tab3 = st.tabs(["Feature Importance", "Confusion Matrix", "Performance Metrics"])
+
+    with tab1:
+        st.subheader("Feature Importance — Random Forest")
+        imp_df = pd.DataFrame({
+            "Feature":    [FEATURE_LABELS[f] for f in FEATURES],
+            "Importance": model.feature_importances_,
+        }).sort_values("Importance", ascending=True)
+
+        fig = px.bar(
+            imp_df, x="Importance", y="Feature", orientation="h",
+            color="Importance",
+            color_continuous_scale=["#38BDF8", "#818CF8", "#C084FC", "#FBBF24"],
+            text=imp_df["Importance"].apply(lambda x: f"{x:.1%}"),
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+            coloraxis_showscale=False,
+            margin=dict(t=10, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.success("**#1 Predictor:** Number of Voted Users (audience engagement) — more predictive than budget alone.")
+
+    with tab2:
+        st.subheader("Confusion Matrix — Random Forest")
+        labels = ["Flop", "Average", "Hit"]
+        fig = px.imshow(
+            cm,
+            x=labels, y=labels,
+            text_auto=True,
+            color_continuous_scale="Blues",
+            labels=dict(x="Predicted", y="Actual", color="Count"),
+        )
+        fig.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            font_color="#F8F8F8",
+            xaxis_title="Predicted",
+            yaxis_title="Actual",
+            margin=dict(t=10, b=10),
+        )
+        st.plotly_chart(fig, use_container_width=True)
+        st.info(
+            "The model performs strongest on **Hit** movies — the most important category for studio decisions. "
+            "The Flop class is underrepresented (only 46 of 5,043 movies), which limits its recall."
         )
 
-# Footer
-st.sidebar.markdown("---")
-st.sidebar.info("""
-**Movie Success Predictor**  
-Boston Institute of Analytics  
-Data Science Project  
-Developed by: Harmain Aziz
-""")
+    with tab3:
+        st.subheader("Performance Metrics")
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Accuracy",  f"{accuracy:.1%}")
+        c2.metric("Precision", f"{report['weighted avg']['precision']:.1%}")
+        c3.metric("Recall",    f"{report['weighted avg']['recall']:.1%}")
+        c4.metric("F1-Score",  f"{report['weighted avg']['f1-score']:.1%}")
+
+        st.markdown("---")
+        st.subheader("Per-Class Breakdown")
+        class_rows = []
+        for cls in ["Flop", "Average", "Hit"]:
+            if cls in report:
+                r = report[cls]
+                class_rows.append({
+                    "Class":     cls,
+                    "Precision": f"{r['precision']:.1%}",
+                    "Recall":    f"{r['recall']:.1%}",
+                    "F1-Score":  f"{r['f1-score']:.1%}",
+                    "Support":   int(r["support"]),
+                })
+        st.dataframe(pd.DataFrame(class_rows), hide_index=True, use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("Business Impact")
+        st.markdown("""
+        | Decision | Insight |
+        |---|---|
+        | **Greenlight** | Use predicted Hit probability as a go/no-go signal |
+        | **Marketing budget** | Allocate more to movies with high Hit confidence |
+        | **Risk management** | Flag predicted Flops early in pre-production |
+        | **Portfolio balance** | Diversify across predicted success categories |
+        """)
