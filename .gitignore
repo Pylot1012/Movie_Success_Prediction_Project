@@ -1,142 +1,78 @@
-# .gitignore for Movie Success Project
-
-# ============================================
-# MOVIE SUCCESS PREDICTION PROJECT - .gitignore
-# ============================================
-
-# ========== PYTHON ==========
-# Virtual environments
+# ── Python ────────────────────────────────────────────────────────────
 venv/
 env/
 ENV/
-.env/
 .venv/
-
-# Python cache
 __pycache__/
 *.py[cod]
-*$py.class
 *.so
 .Python
-
-# Distribution / packaging
-.Python
 build/
-develop-eggs/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
 
-# PyInstaller
-*.manifest
-*.spec
-
-# ========== JUPYTER NOTEBOOKS ==========
+# ── Jupyter ───────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb
 
-# ========== DATA FILES ==========
-# Large datasets - DO NOT UPLOAD to GitHub!
-*.csv
+# ── Data files — EXCEPT the dashboard CSV needed by the Streamlit app ─
 *.xlsx
 *.xls
-*.json
-*.pkl
-*.pickle
 *.h5
 *.hdf5
 *.feather
 *.parquet
 
-# Your specific data files
-data/movie_metadata.csv           # Original dataset (too large)
-Deployment/movie_dashboard_data.csv  # Generated data
-Deployment/model.pkl              # Trained model
-Deployment/scaler.pkl             # Scaler object
+# Large original dataset — do NOT commit
+data/movie_metadata.csv
 
-# ========== VISUALIZATIONS ==========
+# Trained model artifacts — do NOT commit (model is retrained on startup)
+Deployment/model.pkl
+Deployment/scaler.pkl
+
+# Allow the processed dashboard CSV — the app NEEDS this
+!Deployment/movie_dashboard_data.csv
+
+# ── Images ────────────────────────────────────────────────────────────
+# (charts are generated in code, so PNGs are not needed in the repo)
 *.png
 *.jpg
 *.jpeg
 *.gif
 *.bmp
 *.tiff
-*.emf
 *.svg
+# Allow the Tableau dashboard screenshot if present
+!Dashboard/Tableau/dashboard_screenshot.png
 
-# ========== TABLEAU ==========
-.Tableau/
-*.twb
-*.twbx
+# ── Tableau ───────────────────────────────────────────────────────────
 *.tde
 *.hyper
 
-# ========== OPERATING SYSTEM ==========
-# macOS
+# ── OS ────────────────────────────────────────────────────────────────
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-
-# Windows
-Thumbs.db
-Desktop.ini
+desktop.ini
 $RECYCLE.BIN/
 
-# Linux
-*~
-
-# ========== IDE & EDITOR ==========
-# VS Code
+# ── IDE ───────────────────────────────────────────────────────────────
 .vscode/
+.idea/
 *.code-workspace
 
-# PyCharm
-.idea/
-*.iml
-
-# Spyder
-.spyderproject
-.spyproject
-
-# ========== ENVIRONMENT VARIABLES ==========
+# ── Environment variables ─────────────────────────────────────────────
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
 
-# ========== STREAMLIT ==========
-.streamlit/
+# ── Streamlit ─────────────────────────────────────────────────────────
+.streamlit/secrets.toml
 streamlit.log
 
-# ========== MISC ==========
-# Temporary files
+# ── Misc ──────────────────────────────────────────────────────────────
 *.tmp
 *.temp
-*.swp
-*.swo
-
-# Logs
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Compression
 *.7z
 *.dmg
 *.gz
