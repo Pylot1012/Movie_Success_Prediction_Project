@@ -73,7 +73,7 @@ Predicting Movie Success Project/
   3. Top 10 Genres (Bar Chart)
   4. Movies Per Year Trend (Line Chart)
 - **Interactive Filters:** Year Slider, Country Dropdown, Genres Checklist
-- **Live URL:** [Tableau Public Link]
+- **Live URL:** https://public.tableau.com/app/profile/harmain.aziz/viz/Movie_Success_Dashboard/MovieSuccessDashboard
 
 ### 3. **Streamlit Web Application**
 - **Real-time Predictions:** Input movie features for instant success prediction
@@ -143,7 +143,7 @@ To get the dataset:
 - **Tableau Public:** https://public.tableau.com/app/profile/harmain.aziz/viz/Movie_Success_Dashboard/MovieSuccessDashboard?publish=yes
 
 
-- **Streamlit App:** [Your App URL]
+- **Streamlit App:** https://moviesuccesspredictionproject-appyx3a5em6efjwga7ymrvn.streamlit.app/
 
 
 **"Transforming film industry decisions with data-driven insights"**
