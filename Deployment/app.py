@@ -95,6 +95,11 @@ with st.sidebar:
         *December 2025*
         """
     )
+    st.markdown("---")
+    st.markdown("**🔗 Links**")
+    st.markdown("[🚀 Live Streamlit App](https://moviesuccesspredictionproject-appyx3a5em6efjwga7ymrvn.streamlit.app/)")
+    st.markdown("[📊 Tableau Dashboard](https://public.tableau.com/app/profile/harmain.aziz/viz/Movie_Success_Dashboard/MovieSuccessDashboard)")
+    st.markdown("[💻 GitHub Repo](https://github.com/Pylot1012/Movie_Success_Prediction_Project)")
 
 # ══════════════════════════════════════════════════════════════════════
 # PAGE 1 — HOME
